@@ -413,7 +413,7 @@
     <h1 class="headline">Open <em>The Power Place</em> under your own name.</h1>
     <p class="hero-sub">Built by Veritris Axiom, in the order a reseller actually needs it: a fully branded storefront first, a provider network to stock it next, and an exchange API wiring it all together — quietly, underneath — last. Oklahoma launches first.</p>
     <div class="hero-actions">
-      <a class="btn btn-primary" href="https://veritris-energy.github.io/axiom">Claim your storefront →</a>
+      <a class="btn btn-primary" id="claimStorefrontLink" href="https://myaxiom-command-center.onrender.com/claim-storefront">Claim your storefront →</a>
       <a class="btn btn-ghost" href="#how">See the build order</a>
     </div>
   </div>
@@ -537,15 +537,23 @@
               <input id="orgName" type="text" placeholder="e.g. a co-op, marketer or utility" required />
             </div>
             <div>
+              <label for="fullName">Full name</label>
+              <input id="fullName" type="text" placeholder="Your name" required />
+            </div>
+            <div>
               <label for="orgEmail">Work email</label>
               <input id="orgEmail" type="email" placeholder="you@organization.com" required />
             </div>
+            <div>
+              <label for="orgPhone">Phone (optional)</label>
+              <input id="orgPhone" type="tel" placeholder="(555) 555-0100" />
+            </div>
             <button class="cta-submit" type="submit">Claim early access</button>
-            <p class="cta-note">Opens your email client, addressed to our team — nothing is sent from this page.</p>
+            <p class="cta-note" id="ctaNote">Sent straight to our team — nothing opens your email client.</p>
           </form>
           <div class="cta-confirm" id="ctaConfirm">
-            <p style="color:var(--amber); font-family:'IBM Plex Mono',monospace;">✓ Draft ready</p>
-            <p style="margin-top:6px;">Your email client should now have a message addressed to <strong>energy@veritris.com</strong> — send it whenever you're ready.</p>
+            <p style="color:var(--amber); font-family:'IBM Plex Mono',monospace;">✓ Received</p>
+            <p style="margin-top:6px;">Thanks — we've got your details and will follow up at the email you gave us.</p>
           </div>
         </div>
       </div>
@@ -747,20 +755,48 @@
   requestAnimationFrame(frame);
   if (reduceMotion) { setTimeout(function(){ frame(0); }, 30); }
 
-  // ---- CTA form: builds a mailto draft, no network call ----
+  // ---- MyAXIOM Command Center base URL ----
+  // Live now on Render. When command.veritrisaxiom.energy is pointed at the
+  // Render service (add it as a custom domain there, then a CNAME in DNS),
+  // change this one line to "https://command.veritrisaxiom.energy" and both
+  // CTAs below follow automatically. Nothing else needs to change.
+  var MYAXIOM_BASE_URL = "https://myaxiom-command-center.onrender.com";
+
+  // Hero CTA -> full storefront-claim flow on the command center
+  var claimLink = document.getElementById("claimStorefrontLink");
+  if (claimLink) claimLink.href = MYAXIOM_BASE_URL + "/claim-storefront";
+
+  // ---- CTA form: posts to the Resend-backed reseller CRM, no email client involved ----
   var form = document.getElementById("ctaForm");
   var confirm = document.getElementById("ctaConfirm");
+  var ctaNote = document.getElementById("ctaNote");
   form.addEventListener("submit", function (e) {
     e.preventDefault();
-    var org = document.getElementById("orgName").value || "your organization";
+    var submitBtn = form.querySelector(".cta-submit");
+    var organization = document.getElementById("orgName").value || "";
+    var fullName = document.getElementById("fullName").value || "";
     var email = document.getElementById("orgEmail").value || "";
-    var subject = encodeURIComponent("The Power Place — Early Access (Oklahoma)");
-    var body = encodeURIComponent(
-      "Organization: " + org + "\nWork email: " + email + "\n\nWe'd like a walkthrough of The Power Place for Oklahoma."
-    );
-    window.location.href = "mailto:energy@veritris.com?subject=" + subject + "&body=" + body;
-    form.classList.add("hide");
-    confirm.classList.add("show");
+    var phone = document.getElementById("orgPhone").value || "";
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Sending…";
+
+    fetch(MYAXIOM_BASE_URL + "/api/early-access", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organization: organization, fullName: fullName, email: email, phone: phone }),
+    })
+      .then(function (res) { return res.ok ? res.json() : Promise.reject(res); })
+      .then(function () {
+        form.classList.add("hide");
+        confirm.classList.add("show");
+      })
+      .catch(function () {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Claim early access";
+        ctaNote.textContent = "Something went wrong sending that — please try again in a moment.";
+        ctaNote.style.color = "var(--amber)";
+      });
   });
 })();
 </script>
